@@ -264,13 +264,25 @@ class Paned(Container):
         metadata['had_focus'] = widget.has_focus()
 
     def get_handlesize(self):
-        """Why oh why, gtk3?"""
+        """Return the actual handle size in pixels"""
+        hw = self.get_handle_window()
+        if hw:
+            geom = hw.get_geometry()
+            if isinstance(self, Gtk.HPaned) or self.get_orientation() == Gtk.Orientation.HORIZONTAL:
+                return geom.width
+            else:
+                return geom.height
+        if self.config and self.config['handle_size'] in range(0, 21):
+            return self.config['handle_size']
         try:
             value = GObject.Value(int)
             self.style_get_property('handle-size',  value)
-            return(value.get_int())
+            val = value.get_int()
+            if val > 0:
+                return val
         except:
-            return 0
+            pass
+        return 8
 
     def wrapcloseterm(self, widget):
         """A child terminal has closed, so this container must die"""

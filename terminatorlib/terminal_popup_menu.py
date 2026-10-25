@@ -327,7 +327,51 @@ class TerminalPopupMenu(object):
             item.connect('activate', lambda x: PrefsEditor(self.terminal))
             menu.append(item)
 
-        # Theme presets: (label, background, foreground)
+        # Modern Theme Presets & Setup
+        from .themes import THEMES, apply_theme_to_config
+        item = Gtk.MenuItem.new_with_mnemonic(_('✨ _Themes & Styles'))
+        submenu = Gtk.Menu()
+        item.set_submenu(submenu)
+        menu.append(item)
+
+        def apply_and_refresh(theme_key):
+            apply_theme_to_config(self.config, theme_key, transparency=True, blur=True, darkness=0.88, save=True)
+            self.terminator.reconfigure()
+
+        for key, t in THEMES.items():
+            tag = "[Dark]" if t['dark'] else "[Light]"
+            t_item = Gtk.MenuItem(f"{t['name']:<18} {tag} - {t['badge']}")
+            t_item.connect('activate', lambda x, k=key: apply_and_refresh(k))
+            submenu.append(t_item)
+
+        submenu.append(Gtk.SeparatorMenuItem())
+
+        # Transparency toggle
+        trans_check = Gtk.CheckMenuItem.new_with_mnemonic(_('🪟 _Fond transparent (Transparency)'))
+        is_transparent = (self.config['background_type'] == 'transparent')
+        trans_check.set_active(is_transparent)
+        def on_trans_toggled(cb):
+            self.config['background_type'] = 'transparent' if cb.get_active() else 'solid'
+            self.config.save()
+            self.terminator.reconfigure()
+        trans_check.connect('toggled', on_trans_toggled)
+        submenu.append(trans_check)
+
+        # Blur toggle
+        blur_check = Gtk.CheckMenuItem.new_with_mnemonic(_('🌫️ _Effet de flou (Blur)'))
+        blur_check.set_active(bool(self.config['background_blur']))
+        def on_blur_toggled(cb):
+            self.config['background_blur'] = cb.get_active()
+            self.config.save()
+            self.terminator.reconfigure()
+        blur_check.connect('toggled', on_blur_toggled)
+        submenu.append(blur_check)
+
+        setup_item = Gtk.MenuItem.new_with_mnemonic(_('✨ _Interactive Theme Setup (TUI)...'))
+        setup_item.connect('activate', lambda x: terminal.get_toplevel().tab_new(command=f'{sys.executable} {sys.argv[0]} setup'))
+        submenu.append(setup_item)
+
+        # Legacy Theme presets: (label, background, foreground)
         theme_items = [
             ('Solarized Light', '#eee8d5', '#586e75'),
             ('Solarized Dark', '#002b36', '#839496'),
@@ -464,8 +508,66 @@ class TerminalPopupMenu(object):
         menu.append(item)
         submenu = Gtk.Menu()
         item.set_submenu(submenu)
+
+        # Direct save current layout action
+        save_item = Gtk.MenuItem(label=_('💾 Sauvegarder la disposition actuelle...'))
+        save_item.connect('activate', self.on_save_current_layout)
+        submenu.append(save_item)
+
+        submenu.append(Gtk.SeparatorMenuItem())
+
         layouts = self.config.list_layouts()
         for layout in layouts:
-                item = Gtk.MenuItem(layout)
-                item.connect('activate', lambda x: spawn_new_terminator(self.terminator.origcwd, ['-u', '-l', x.get_label()]))
-                submenu.append(item)
+            item = Gtk.MenuItem(layout)
+            item.connect('activate', lambda x: spawn_new_terminator(self.terminator.origcwd, ['-u', '-l', x.get_label()]))
+            submenu.append(item)
+
+    def on_save_current_layout(self, _widget):
+        """Prompt user for a name and save current layout including cwd"""
+        window = self.terminal.get_toplevel()
+        dialog = Gtk.Dialog(
+            title=_('Sauvegarder la disposition'),
+            transient_for=window if isinstance(window, Gtk.Window) else None,
+            modal=True,
+            destroy_with_parent=True
+        )
+        dialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        dialog.add_button(Gtk.STOCK_SAVE, Gtk.ResponseType.OK)
+        dialog.set_default_response(Gtk.ResponseType.OK)
+
+        content = dialog.get_content_area()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_border_width(12)
+
+        lbl = Gtk.Label(label=_('Nom de la disposition (layout) :'))
+        lbl.set_xalign(0.0)
+        box.pack_start(lbl, False, False, 0)
+
+        entry = Gtk.Entry()
+        existing = self.config.list_layouts()
+        default_name = 'session_1'
+        idx = 1
+        while default_name in existing:
+            idx += 1
+            default_name = f'session_{idx}'
+        entry.set_text(default_name)
+        entry.set_activates_default(True)
+        box.pack_start(entry, False, False, 0)
+
+        info_lbl = Gtk.Label(label=_('Tous les terminaux splittés et leurs dossiers actuels (paths) seront enregistrés.'))
+        info_lbl.set_line_wrap(True)
+        info_lbl.set_xalign(0.0)
+        box.pack_start(info_lbl, False, False, 0)
+
+        content.add(box)
+        dialog.show_all()
+
+        response = dialog.run()
+        layout_name = entry.get_text().strip()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK and layout_name:
+            current_layout = self.terminator.describe_layout(save_cwd=True)
+            if not self.config.replace_layout(layout_name, current_layout):
+                self.config.add_layout(layout_name, current_layout)
+            self.config.save()

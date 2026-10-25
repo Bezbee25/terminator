@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Preferences Editor for Terminator. 
 
 Load a UIBuilder config file, display it,
@@ -16,7 +16,7 @@ from .keybindings import Keybindings, KeymapError
 from .translation import _
 from .terminator import Terminator
 from .plugin import PluginRegistry
-from .version import APP_NAME
+from .version import APP_NAME, APP_VERSION
 
 from .plugin import KeyBindUtil
 
@@ -240,6 +240,10 @@ class PrefsEditor:
         self.config.uninhibit_save()
 
         guiget = self.builder.get_object
+        about_version = guiget('about_version_label')
+        if about_version:
+            about_version.set_text(_('Version: %s') % APP_VERSION)
+
         nb = guiget('notebook1')
         nb.set_current_page(cur_page)
 
@@ -1479,6 +1483,8 @@ class PrefsEditor:
         guiget = self.builder.get_object
         label_widget = guiget('handlesize_value_label')
         label_widget.set_text(str(value))
+        terminator = Terminator()
+        terminator.reconfigure()
 
     def on_cellheight_value_changed(self, widget):
         """Handles cell height changed"""

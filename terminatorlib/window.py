@@ -488,6 +488,10 @@ class Window(Container, Gtk.Window):
 
     def on_window_realize(self, widget):
         """Apply window hints once the window is realized"""
+        self.apply_window_hints()
+
+    def apply_window_hints(self):
+        """Apply window hints such as blur-behind and theme variant"""
         profiles = self.config.base.profiles
         should_blur = False
         for profile in profiles.values():

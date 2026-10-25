@@ -860,7 +860,7 @@ class ConfigBase(Borg):
             os.makedirs(config_dir)
 
         try:
-            if self.command_line_options.config:
+            if self.command_line_options and getattr(self.command_line_options, 'config', None):
                 filename = self.command_line_options.config
             else: 
                 filename = os.path.join(config_dir,'config')

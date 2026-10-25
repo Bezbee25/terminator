@@ -65,6 +65,8 @@ class Terminator(Borg):
     groupsend = None
     groupsend_type = {'all':0, 'group':1, 'off':2}
 
+    suppress_close_term_confirm = False
+
     cur_gtk_theme_name = None
     gtk_settings = None
 
@@ -384,13 +386,36 @@ class Terminator(Borg):
 
             .terminator-terminal-window .notebook.header,
             .terminator-terminal-window notebook header {
-                background-color: @theme_bg_color; }
+                background-color: alpha(@theme_bg_color, 0.5);
+                border-bottom: 1px solid alpha(@borders, 0.4);
+                padding: 2px 4px; }
 
-            .terminator-terminal-window .pane-separator {
+            .terminator-terminal-window notebook tab {
+                border-radius: 6px 6px 0 0;
+                padding: 4px 12px;
+                margin: 1px 2px;
+                border: none;
+                transition: all 150ms ease-in-out; }
+
+            .terminator-terminal-window notebook tab:checked {
+                background-color: alpha(@theme_bg_color, 0.9);
+                border-bottom: 2px solid @theme_selected_bg_color; }
+
+            .terminator-terminal-window notebook tab:hover:not(:checked) {
+                background-color: alpha(@theme_bg_color, 0.7); }
+
+            .terminator-terminal-window .pane-separator,
+            .terminator-terminal-window paned > separator {
                 background-color: @theme_bg_color; }
 
             .terminator-terminal-window .terminator-terminal-searchbar {
-                background-color: @theme_bg_color; }
+                background-color: @theme_bg_color;
+                border-radius: 6px;
+                padding: 4px;
+                margin: 4px; }
+
+            vte-terminal {
+                padding: 4px; }
             """
 
         # Fix several themes that put a borders, corners, or backgrounds around
@@ -472,15 +497,33 @@ class Terminator(Borg):
                     self.style_providers.append(style_provider)
                     break
 
-        # Size the GtkPaned splitter handle size.
-        css = ""
-        if self.config['handle_size'] in range(0, 21):
-            css += """
-                .terminator-terminal-window separator {
-                    min-height: %spx;
-                    min-width: %spx; 
-                }
-                """ % (self.config['handle_size'],self.config['handle_size'])
+        # Size the GtkPaned splitter handle size and make it reactive with hover feedback.
+        handle_size = self.config['handle_size']
+        if handle_size in range(0, 21):
+            size = handle_size
+        else:
+            size = 5
+
+        css = """
+            paned.horizontal > separator,
+            paned.horizontal > separator.wide,
+            .terminator-terminal-window paned.horizontal > separator,
+            .terminator-terminal-window paned.horizontal > separator.wide {
+                min-width: %spx;
+            }
+            paned.vertical > separator,
+            paned.vertical > separator.wide,
+            .terminator-terminal-window paned.vertical > separator,
+            .terminator-terminal-window paned.vertical > separator.wide {
+                min-height: %spx;
+            }
+            paned > separator:hover,
+            paned > separator.wide:hover,
+            paned > separator:active,
+            paned > separator.wide:active {
+                background-color: @theme_selected_bg_color;
+            }
+            """ % (size, size)
         style_provider = Gtk.CssProvider()
         style_provider.load_from_data(css.encode('utf-8'))
         self.style_providers.append(style_provider)

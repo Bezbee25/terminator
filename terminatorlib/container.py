@@ -10,6 +10,7 @@ from .config import Config
 from .util import dbg, err
 from .translation import _
 from .signalman import Signalman
+from .terminator import Terminator
 
 # pylint: disable-msg=R0921
 class Container(object):
@@ -215,6 +216,30 @@ the tab will also close all terminals within it.')
         box.pack_start(labels, False, False, 6)
         dialog.vbox.pack_start(box, False, False, 12)
 
+        save_layout_check = None
+        save_layout_entry = None
+        if has_multiple_terms:
+            save_box = Gtk.VBox(spacing=4)
+            save_layout_check = Gtk.CheckButton(label=_('Sauvegarder cette disposition et les chemins (paths)'))
+            entry_box = Gtk.HBox(spacing=6)
+            entry_lbl = Gtk.Label(label=_('Nom :'))
+            save_layout_entry = Gtk.Entry()
+            existing_layouts = self.config.list_layouts()
+            default_name = 'session_1'
+            idx = 1
+            while default_name in existing_layouts:
+                idx += 1
+                default_name = f'session_{idx}'
+            save_layout_entry.set_text(default_name)
+            save_layout_entry.set_sensitive(False)
+            entry_box.pack_start(entry_lbl, False, False, 0)
+            entry_box.pack_start(save_layout_entry, True, True, 0)
+
+            save_layout_check.connect('toggled', lambda cb: save_layout_entry.set_sensitive(cb.get_active()))
+            save_box.pack_start(save_layout_check, False, False, 0)
+            save_box.pack_start(entry_box, False, False, 0)
+            dialog.vbox.pack_start(save_box, False, False, 6)
+
         checkbox = Gtk.CheckButton(_("Do not show this message next time"))
         dialog.vbox.pack_end(checkbox, True, True, 0)
     
@@ -222,6 +247,17 @@ the tab will also close all terminals within it.')
 
         result = dialog.run()
         
+        # Save layout if requested
+        if result == Gtk.ResponseType.ACCEPT:
+            if save_layout_check and save_layout_check.get_active():
+                layout_name = save_layout_entry.get_text().strip()
+                if layout_name:
+                    terminator = Terminator()
+                    current_layout = terminator.describe_layout(save_cwd=True)
+                    if not self.config.replace_layout(layout_name, current_layout):
+                        self.config.add_layout(layout_name, current_layout)
+                    self.config.save()
+
         # set configuration
         self.config.base.reload()
         if checkbox.get_active():

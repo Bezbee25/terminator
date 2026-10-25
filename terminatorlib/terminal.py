@@ -6,6 +6,7 @@
 import os
 import signal
 import time
+import tempfile
 import gi
 from gi.repository import GLib, GObject, Pango, Gtk, Gdk, GdkPixbuf, cairo
 gi.require_version('Vte', '2.91')  # vte-0.38 (gnome-3.14)
@@ -1840,6 +1841,29 @@ class Terminal(Gtk.VBox):
     def paste_clipboard(self, primary=False, mouse=False):
         """Paste one of the two clipboards"""
         if not (mouse and self.config['disable_mouse_paste']):
+            # If the clipboard contains an image (e.g. from flameshot), save it as a temporary
+            # PNG file and paste the file path so CLI tools and shells can use it.
+            if not primary:
+                clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                if clipboard.wait_is_image_available():
+                    pixbuf = clipboard.wait_for_image()
+                    if pixbuf:
+                        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+                        temp_path = temp_file.name
+                        temp_file.close()
+                        try:
+                            pixbuf.savev(temp_path, 'png', [], [])
+                            for term in self.terminator.get_target_terms(self):
+                                term.feed(temp_path)
+                            self.vte.grab_focus()
+                            return
+                        except Exception as e:
+                            dbg('Failed to save clipboard image: %s' % e)
+                            try:
+                                os.unlink(temp_path)
+                            except OSError:
+                                pass
+
             for term in self.terminator.get_target_terms(self):
                 if primary:
                     term.vte.paste_primary()
@@ -2099,6 +2123,77 @@ class Terminal(Gtk.VBox):
         self.emit('rotate-ccw')
 
     def key_close_term(self):
+        if not getattr(self.terminator, 'suppress_close_term_confirm', False):
+            window = self.get_toplevel()
+            dialog = Gtk.Dialog(
+                title=_('Fermer la fenêtre ?'),
+                transient_for=window if isinstance(window, Gtk.Window) else None,
+                modal=True,
+                destroy_with_parent=True
+            )
+            dialog.set_resizable(False)
+            dialog.add_button(_('Non'), Gtk.ResponseType.NO)
+            dialog.add_button(_('Oui'), Gtk.ResponseType.YES)
+            dialog.set_default_response(Gtk.ResponseType.YES)
+
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            box.set_border_width(12)
+            icon = Gtk.Image.new_from_icon_name('dialog-question', Gtk.IconSize.DIALOG)
+            box.pack_start(icon, False, False, 0)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+            label = Gtk.Label(label='<b><big>' + _('Voulez-vous fermer cette fenêtre ?') + '</big></b>')
+            label.set_use_markup(True)
+            label.set_xalign(0.0)
+            vbox.pack_start(label, False, False, 0)
+
+            save_layout_check = None
+            save_layout_entry = None
+            if len(self.terminator.terminals) > 1:
+                save_layout_check = Gtk.CheckButton(label=_('Sauvegarder la disposition des terminaux et leurs chemins'))
+                entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+                entry_lbl = Gtk.Label(label=_('Nom :'))
+                save_layout_entry = Gtk.Entry()
+                existing = self.config.list_layouts()
+                default_name = 'session_1'
+                idx = 1
+                while default_name in existing:
+                    idx += 1
+                    default_name = f'session_{idx}'
+                save_layout_entry.set_text(default_name)
+                save_layout_entry.set_sensitive(False)
+                entry_box.pack_start(entry_lbl, False, False, 0)
+                entry_box.pack_start(save_layout_entry, True, True, 0)
+
+                save_layout_check.connect('toggled', lambda cb: save_layout_entry.set_sensitive(cb.get_active()))
+                vbox.pack_start(save_layout_check, False, False, 2)
+                vbox.pack_start(entry_box, False, False, 2)
+
+            checkbox = Gtk.CheckButton(label=_('Ne plus demander la prochaine fois dans cette session'))
+            vbox.pack_start(checkbox, False, False, 0)
+            box.pack_start(vbox, True, True, 0)
+
+            dialog.get_content_area().add(box)
+            dialog.show_all()
+
+            response = dialog.run()
+            dont_ask_again = checkbox.get_active()
+            should_save_layout = save_layout_check and save_layout_check.get_active()
+            layout_name_to_save = save_layout_entry.get_text().strip() if should_save_layout else None
+            dialog.destroy()
+
+            if response != Gtk.ResponseType.YES:
+                return
+
+            if should_save_layout and layout_name_to_save:
+                current_layout = self.terminator.describe_layout(save_cwd=True)
+                if not self.config.replace_layout(layout_name_to_save, current_layout):
+                    self.config.add_layout(layout_name_to_save, current_layout)
+                self.config.save()
+
+            if dont_ask_again:
+                self.terminator.suppress_close_term_confirm = True
+
         self.close()
 
     def key_resize_up(self):

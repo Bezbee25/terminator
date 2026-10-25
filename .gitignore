@@ -24,3 +24,9 @@ terminatorlib/meliae
 .intltool*
 data/terminator.appdata.xml
 data/terminator.desktop
+
+# Binaries and packages
+*.deb
+*.AppImage
+*.bak
+install-files.txt

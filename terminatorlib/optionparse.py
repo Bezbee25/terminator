@@ -89,6 +89,8 @@ icon for the window (by file or name)'))
             dest='select', help=_('Select a layout from a list'))
     parser.add_argument('-p', '--profile', dest='profile',
             help=_('Use a different profile as the default'))
+    parser.add_argument('--setup', action='store_true', dest='setup',
+            help=_('Launch interactive theme and style setup'))
     parser.add_argument('-u', '--no-dbus', action='store_true', dest='nodbus',
             help=_('Disable DBus'))
     parser.add_argument('-d', '--debug', action='count', dest='debug',

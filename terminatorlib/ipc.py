@@ -326,6 +326,18 @@ class DBusService(Borg, dbus.service.Object):
             profile_name = options.get('profile')
             terminal.force_set_profile(False, profile_name)
 
+    @dbus.service.method(BUS_NAME, in_signature='a{ss}')
+    def apply_theme_preview(self, options=dbus.Dictionary()):
+        """Apply theme preview live across all terminals and windows"""
+        theme_name = options.get('theme', 'claude_dark')
+        transparency = options.get('transparency', '1') == '1'
+        blur = options.get('blur', '1') == '1'
+        darkness = float(options.get('darkness', '0.88'))
+        save = options.get('save', '0') == '1'
+        from .themes import apply_theme_to_config
+        apply_theme_to_config(self.terminator.config, theme_name, transparency, blur, darkness, save=save)
+        self.terminator.reconfigure()
+
 
 def with_proxy(func):
     """Decorator function to connect to the session dbus bus"""
@@ -438,3 +450,7 @@ def bg_img_all(session,options):
 @with_proxy
 def bg_img(session,uuid,options):
     session.bg_img(uuid,options)
+
+@with_proxy
+def apply_theme_preview(session, options):
+    session.apply_theme_preview(options)

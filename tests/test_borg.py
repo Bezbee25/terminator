@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """test_borg.py - We are the borg. Resistance is futile.
