@@ -96,3 +96,16 @@ def test_close_terminal_finds_confirmation_container_above_parent_widget():
 
     assert terminal.closed
     assert container.confirmations == [(terminal.get_toplevel(), terminal)]
+
+
+def test_close_terminal_delegates_to_confirm_and_close_if_present():
+    """Context menu close prefers terminal.confirm_and_close when implemented."""
+    class FakeTerminalWithConfirm:
+        def __init__(self):
+            self.confirm_called = False
+        def confirm_and_close(self):
+            self.confirm_called = True
+
+    terminal = FakeTerminalWithConfirm()
+    popup_for(terminal).close_terminal()
+    assert terminal.confirm_called

@@ -87,6 +87,10 @@ class TerminalPopupMenu(object):
     def close_terminal(self, _menuitem=None):
         """Close the terminal after applying the normal close confirmation."""
         terminal = self.terminal
+        if hasattr(terminal, 'confirm_and_close'):
+            terminal.confirm_and_close()
+            return
+
         container = terminal.get_parent()
 
         while container and not hasattr(container, 'construct_confirm_close'):
@@ -269,12 +273,6 @@ class TerminalPopupMenu(object):
 
             menu.append(Gtk.SeparatorMenuItem())
 
-        item = self.menu_item(Gtk.ImageMenuItem, 'close_term', _('_Close'))
-        item.connect('activate', self.close_terminal)
-        menu.append(item)
-
-        menu.append(Gtk.SeparatorMenuItem())
-
         if not terminal.is_zoomed():
             sensitive = not terminal.get_toplevel() == terminal.get_parent()
 
@@ -444,6 +442,16 @@ class TerminalPopupMenu(object):
                 menu.append(menuitem)
         except Exception as ex:
             err('TerminalPopupMenu::show: %s' % ex)
+
+        menu.append(Gtk.SeparatorMenuItem())
+        item = self.menu_item(Gtk.ImageMenuItem, 'close_term', _('_Close'))
+        image = Gtk.Image()
+        image.set_from_icon_name('window-close', Gtk.IconSize.MENU)
+        item.set_image(image)
+        if hasattr(item, 'set_always_show_image'):
+            item.set_always_show_image(True)
+        item.connect('activate', self.close_terminal)
+        menu.append(item)
 
         menu.show_all()
         menu.popup_at_pointer(None)

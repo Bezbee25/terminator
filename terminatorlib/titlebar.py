@@ -29,6 +29,11 @@ class Titlebar(Gtk.EventBox):
     grouplabel = None
     groupentry = None
     bellicon = None
+    btn_zoom = None
+    btn_split_h = None
+    btn_split_v = None
+    btn_layout_3 = None
+    icon_zoom = None
 
     __gsignals__ = {
             'clicked': (GObject.SignalFlags.RUN_LAST, None, ()),
@@ -82,10 +87,55 @@ class Titlebar(Gtk.EventBox):
         viewport = Gtk.Viewport(hscroll_policy='natural')
         viewport.add(self.label)
 
+        # Quick action buttons on the right side of the titlebar
+        actions_box = Gtk.HBox()
+        actions_box.set_spacing(1)
+
+        def create_titlebar_btn(icon_name, fallback_icon, tooltip_text, on_click_callback):
+            btn = Gtk.Button()
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            btn.set_can_focus(False)
+            btn.set_tooltip_text(tooltip_text)
+            btn.get_style_context().add_class('terminator-titlebar-btn')
+            img = Gtk.Image()
+            theme = Gtk.IconTheme.get_default()
+            actual_icon = icon_name if theme.has_icon(icon_name) else fallback_icon
+            img.set_from_icon_name(actual_icon, Gtk.IconSize.MENU)
+            btn.add(img)
+            btn.connect('clicked', lambda _btn: on_click_callback())
+            return btn, img
+
+        self.btn_zoom, self.icon_zoom = create_titlebar_btn(
+            'window-maximize-symbolic', 'view-fullscreen',
+            _('Maximiser / Restaurer le terminal'),
+            lambda: self.terminal.key_toggle_zoom()
+        )
+        self.btn_split_h, btn_img_h = create_titlebar_btn(
+            'terminator_horiz', 'object-flip-vertical-symbolic',
+            _('Scinder horizontalement'),
+            lambda: self.terminal.key_split_horiz()
+        )
+        self.btn_split_v, btn_img_v = create_titlebar_btn(
+            'terminator_vert', 'object-flip-horizontal-symbolic',
+            _('Scinder verticalement'),
+            lambda: self.terminal.key_split_vert()
+        )
+        self.btn_layout_3, btn_img_3 = create_titlebar_btn(
+            'terminator_layout_three', 'view-grid-symbolic',
+            _('Disposition 3 panneaux (2 haut, 1 bas)'),
+            lambda: self.terminal.split_layout_three()
+        )
+
+        actions_box.pack_start(self.btn_zoom, False, False, 0)
+        actions_box.pack_start(self.btn_split_h, False, False, 0)
+        actions_box.pack_start(self.btn_split_v, False, False, 0)
+        actions_box.pack_start(self.btn_layout_3, False, False, 0)
+
         hbox = Gtk.HBox()
         hbox.pack_start(self.ebox, False, True, 0)
         hbox.pack_start(Gtk.VSeparator(), False, True, 0)
         hbox.pack_start(viewport, True, True, 0)
+        hbox.pack_end(actions_box, False, False, 2)
         hbox.pack_end(self.bellicon, False, False, 2)
 
         self.add(hbox)
@@ -181,6 +231,18 @@ class Titlebar(Gtk.EventBox):
             self.ebox.modify_bg(Gtk.StateType.NORMAL,
                     Gdk.color_parse(group_bg))
             self.set_from_icon_name(icon, Gtk.IconSize.MENU)
+
+        # Update zoom/restore button icon state
+        if self.icon_zoom and hasattr(self.terminal, 'is_zoomed'):
+            try:
+                is_zoomed = self.terminal.is_zoomed()
+                zoom_icon_name = 'window-restore-symbolic' if is_zoomed else 'window-maximize-symbolic'
+                theme = Gtk.IconTheme.get_default()
+                if not theme.has_icon(zoom_icon_name):
+                    zoom_icon_name = 'view-restore' if is_zoomed else 'view-fullscreen'
+                self.icon_zoom.set_from_icon_name(zoom_icon_name, Gtk.IconSize.MENU)
+            except Exception:
+                pass
 
     def update_visibility(self):
         """Make the titlebar be visible or not"""

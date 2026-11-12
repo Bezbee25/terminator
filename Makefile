@@ -12,7 +12,7 @@ ifneq ($(DESTDIR),)
 INSTALL_ARGS += --root=$(DESTDIR)
 endif
 
-VERSION ?= 2.1.7
+VERSION ?= 2.1.10
 DEB_NAME ?= terminator_$(VERSION)_all.deb
 APPIMAGE_NAME ?= Terminator-$(VERSION)-x86_64.AppImage
 APPIMAGETOOL ?= /tmp/appimagetool

@@ -2122,7 +2122,8 @@ class Terminal(Gtk.VBox):
     def key_rotate_ccw(self):
         self.emit('rotate-ccw')
 
-    def key_close_term(self):
+    def confirm_and_close(self):
+        """Confirm closure and close terminal, optionally saving layout"""
         if not getattr(self.terminator, 'suppress_close_term_confirm', False):
             window = self.get_toplevel()
             dialog = Gtk.Dialog(
@@ -2195,6 +2196,19 @@ class Terminal(Gtk.VBox):
                 self.terminator.suppress_close_term_confirm = True
 
         self.close()
+
+    def key_close_term(self):
+        self.confirm_and_close()
+
+    def split_layout_three(self):
+        """Split into 3 terminals: bottom wide pane, top split into two vertical panes."""
+        if self.is_zoomed():
+            self.unzoom()
+        cwd = self.get_cwd()
+        # 1. Scission horizontale : le terminal actuel reste en haut, un nouveau terminal est créé en bas
+        self.emit('split-horiz', cwd)
+        # 2. Scission verticale sur le terminal actuel (en haut) pour créer les deux panneaux du haut
+        self.emit('split-vert', cwd)
 
     def key_resize_up(self):
         self.emit('resize-term', 'up')

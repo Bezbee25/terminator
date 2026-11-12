@@ -89,6 +89,14 @@ class Terminator(Borg):
             self.groups = []
         if not self.config:
             self.config = Config()
+        # Add local icon themes path so custom/bundled icons are always discovered
+        icon_theme = Gtk.IconTheme.get_default()
+        for candidate_path in [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'data', 'icons'),
+            '/usr/share/terminator/icons'
+        ]:
+            if os.path.exists(candidate_path):
+                icon_theme.append_search_path(candidate_path)
         if self.groupsend == None:
             self.groupsend = self.groupsend_type[self.config['broadcast_default']]
         if not self.keybindings:
@@ -416,6 +424,21 @@ class Terminator(Borg):
 
             vte-terminal {
                 padding: 4px; }
+
+            .terminator-titlebar-btn {
+                padding: 0px 2px;
+                margin: 0px 1px;
+                border: none;
+                background: transparent;
+                box-shadow: none;
+                min-width: 16px;
+                min-height: 16px;
+                opacity: 0.75;
+            }
+            .terminator-titlebar-btn:hover {
+                opacity: 1.0;
+                background-color: alpha(@theme_selected_bg_color, 0.35);
+            }
             """
 
         # Fix several themes that put a borders, corners, or backgrounds around
